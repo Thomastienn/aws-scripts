@@ -64,88 +64,11 @@ NEWEST_STREAM=$(aws logs describe-log-streams \
 
 echo "Targeting newest log stream: $NEWEST_STREAM"
 
-# Global variables for log group switching
-NEW_LOG_GROUP_FOUND=""
-LOG_GROUP_CHECK_PID=""
-
-# Function to check for newer log groups in background (runs once)
-check_for_newer_log_groups() {
-    # Get all log groups again
-    local current_log_groups=()
-    local next_token=""
-    
-    while : ; do
-        if [ -z "$next_token" ]; then
-            local response=$(aws logs describe-log-groups --profile "$PROFILE" --output json 2>/dev/null)
-        else
-            local response=$(aws logs describe-log-groups --profile "$PROFILE" --next-token "$next_token" --output json 2>/dev/null)
-        fi
-        
-        if [ $? -ne 0 ]; then
-            break  # Skip this check if AWS call fails
-        fi
-        
-        local groups=$(echo "$response" | jq -r '.logGroups[].logGroupName' 2>/dev/null)
-        current_log_groups+=($groups)
-        
-        next_token=$(echo "$response" | jq -r '.nextToken // empty' 2>/dev/null)
-        if [ -z "$next_token" ]; then
-            break
-        fi
-    done
-    
-    # Filter for matching log groups
-    local current_matches=()
-    for lg in "${current_log_groups[@]}"; do
-        if [[ "$lg" == *"$PARTIAL_LOG_GROUP"* ]]; then
-            current_matches+=("$lg")
-        fi
-    done
-    
-    # Sort matches to get the newest (assuming lexicographic sorting works for timestamps in names)
-    if [ ${#current_matches[@]} -gt 0 ]; then
-        # Sort and get the first (newest) match
-        local newest_match=$(printf '%s\n' "${current_matches[@]}" | sort -r | head -n1)
-        
-        # Check if we found a different (presumably newer) log group
-        if [[ "$newest_match" != "$EXACT_LOG_GROUP" ]]; then
-            NEW_LOG_GROUP_FOUND="$newest_match"
-        fi
-    fi
-}
-
 # Function to fetch and display logs
 fetch_logs() {
     local query_id
     local status
     local numLogs=100
-    
-    # Kill any existing background check process to ensure only one runs
-    if [[ -n "$LOG_GROUP_CHECK_PID" ]] && kill -0 "$LOG_GROUP_CHECK_PID" 2>/dev/null; then
-        kill "$LOG_GROUP_CHECK_PID" 2>/dev/null
-        wait "$LOG_GROUP_CHECK_PID" 2>/dev/null
-    fi
-    
-    # Start background check for newer log groups
-    check_for_newer_log_groups &
-    LOG_GROUP_CHECK_PID=$!
-    
-    # Check if we should switch to a newer log group
-    if [[ -n "$NEW_LOG_GROUP_FOUND" ]]; then
-        echo "Switching to newer log group: $NEW_LOG_GROUP_FOUND"
-        EXACT_LOG_GROUP="$NEW_LOG_GROUP_FOUND"
-        NEW_LOG_GROUP_FOUND=""  # Clear the flag
-        
-        # Update newest stream info
-        NEWEST_STREAM=$(aws logs describe-log-streams \
-          --profile "$PROFILE" \
-          --log-group-name "$EXACT_LOG_GROUP" \
-          --order-by LastEventTime \
-          --descending \
-          --max-items 1 \
-          --query 'logStreams[0].logStreamName' \
-          --output text 2>/dev/null)
-    fi
     
     # Use CloudWatch Logs Insights with recent time window to get newest logs
     QUERY="fields @timestamp, @message, @logStream | sort @timestamp desc | limit $numLogs"
@@ -178,9 +101,6 @@ fetch_logs() {
     if [[ "$status" == "Complete" ]]; then
         clear
         echo "=== Log group: $EXACT_LOG_GROUP ==="
-        if [[ -n "$NEW_LOG_GROUP_FOUND" ]]; then
-            echo "=== (Newer log group found: $NEW_LOG_GROUP_FOUND - will switch on next refresh) ==="
-        fi
         echo "=== $numLogs Newest Logs (Updated: $(date '+%Y-%m-%d %H:%M:%S')) ==="
         echo ""
         
@@ -198,20 +118,10 @@ fetch_logs() {
 }
 
 # Set up signal handler for clean exit
-cleanup() {
-    echo -e "\n\nExiting..."
-    # Kill background process if running
-    if [[ -n "$LOG_GROUP_CHECK_PID" ]] && kill -0 "$LOG_GROUP_CHECK_PID" 2>/dev/null; then
-        kill "$LOG_GROUP_CHECK_PID" 2>/dev/null
-        wait "$LOG_GROUP_CHECK_PID" 2>/dev/null
-    fi
-    exit 0
-}
-trap cleanup SIGINT
+trap 'echo -e "\n\nExiting..."; exit 0' SIGINT
 
 echo ""
 echo "Starting continuous log monitoring..."
-echo "Will check for newer log groups on each refresh"
 echo "Press Enter to refresh, Ctrl-C to exit"
 echo ""
 

@@ -12,17 +12,22 @@ warning_color = (217, 119, 6)        # Dark amber for warnings
 success_color = (21, 128, 61)        # Deep green for success messages
 highlight_color = (126, 34, 206)     # Deep purple for important highlights
 
-def print_color(text, color):
+def print_color(text, color, end='\n'):
     r, g, b = color
-    print(f'\033[38;2;{r};{g};{b}m{text}\033[0m')
+    print(f'\033[38;2;{r};{g};{b}m{text}\033[0m', end=end)
 
 for result in reversed(data["results"]):
     result: list[dict[str, str]]
-    for res in result:
+    n = len(result)
+    for i, res in enumerate(result):
         if res["field"] == "@timestamp":
+            if i+1 < n and result[i + 1]["field"] == "@message" and "HealthCheck" in result[i + 1]["value"]:
+                continue
             print_color(res["value"], timestamp_color)
         elif res["field"] == "@message":
             message = res["value"]
+            if "HealthCheck" in message:
+                continue
             if "ERROR" in message or "FATAL" in message:
                 print_color(message, error_color)
             elif "WARN" in message or "WARNING" in message:
@@ -38,4 +43,4 @@ for result in reversed(data["results"]):
             else:
                 # Default dark gray for other messages (light theme friendly)
                 print_color(message, (55, 65, 81))
-    print()
+            print()
