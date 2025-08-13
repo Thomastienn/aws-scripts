@@ -178,6 +178,7 @@ fetch_logs() {
     if [[ "$status" == "Complete" ]]; then
         clear
         echo "=== Log group: $EXACT_LOG_GROUP ==="
+        echo "=== Newest log stream: $NEWEST_STREAM ==="
         if [[ -n "$NEW_LOG_GROUP_FOUND" ]]; then
             echo "=== (Newer log group found: $NEW_LOG_GROUP_FOUND - will switch on next refresh) ==="
         fi
