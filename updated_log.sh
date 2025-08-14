@@ -5,7 +5,11 @@
 
 PROFILE="smartsuite"  # Change this to your AWS CLI profile name
 
-if [ $# -ne 1 ]; then
+if [ $# -eq 1 ]; then
+    echo "Usage: $0 <partial-log-group-name> [branch]"
+fi
+
+if [ $# -gt 2 ]; then
   echo "Usage: $0 <partial-log-group-name>"
   exit 1
 fi
