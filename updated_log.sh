@@ -11,6 +11,7 @@ if [ $# -ne 1 ]; then
 fi
 
 PARTIAL_LOG_GROUP=$1
+BRANCH=${2:-"dev"}
 
 echo "Searching for log groups containing pattern: '$PARTIAL_LOG_GROUP'"
 
@@ -37,7 +38,7 @@ done
 # Filter log groups by substring match (case sensitive)
 MATCHES=()
 for lg in "${LOG_GROUPS[@]}"; do
-  if [[ "$lg" == *"$PARTIAL_LOG_GROUP"* ]]; then
+  if [[ "$lg" == "$BRANCH"*"$PARTIAL_LOG_GROUP"* ]]; then
     MATCHES+=("$lg")
   fi
 done
