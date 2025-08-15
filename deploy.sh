@@ -7,7 +7,7 @@ fi
 
 run(){
   echo "Deploying to $BRANCH environment..."
-  cdk --profile smartsuite -app ~/smartsuite/ deploy "$BRANCH"/* --hotswap-fallback
+  cdk --profile smartsuite deploy "$BRANCH"/* --hotswap-fallback
 }
 
 if [ "$BRANCH" == "dev" ]; then

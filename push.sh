@@ -1,5 +1,6 @@
 CACHE_FILE=$HOME/aws-scripts/.bucket_cache
 CACHE_TTL=28800
+BRANCH=${1:-"dev"}
 
 if [ -f "$CACHE_FILE" ]; then
     age=$(( $(date +%s) - $(stat -c %Y "$CACHE_FILE") ))
@@ -15,7 +16,7 @@ if [ -f "$CACHE_FILE" ]; then
     S3_BUCKET_NAME=$(cat "$CACHE_FILE")
 else
     echo "Cache not found or stale, fetching bucket name..."
-    S3_BUCKET_NAME=$(aws s3 ls | rg -o "dev.*webserver.*")
+    S3_BUCKET_NAME=$(aws s3 ls | rg -o "$BRANCH.*webserver.*")
     echo "$S3_BUCKET_NAME" > "$CACHE_FILE"
 fi
 
