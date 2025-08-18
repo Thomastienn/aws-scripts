@@ -1,3 +1,3 @@
-.bucket_cache
+.bucket_cache*
 venv/
 .venv/
